@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/components/ui/mode-toggle";
@@ -10,6 +10,7 @@ const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,6 +20,12 @@ const Header = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setIsSearchOpen(false);
+  }, [location.pathname]);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleSearch = () => setIsSearchOpen(!isSearchOpen);
@@ -84,8 +91,12 @@ const Header = () => {
             )}
           </div>
           <ModeToggle />
-          <Button variant="outline" className="ml-2 rounded-full h-9">Sign In</Button>
-          <Button className="ml-2 rounded-full h-9">Sign Up</Button>
+          <Link to="/signin">
+            <Button variant="outline" className="ml-2 rounded-full h-9">Sign In</Button>
+          </Link>
+          <Link to="/signup">
+            <Button className="ml-2 rounded-full h-9">Sign Up</Button>
+          </Link>
         </nav>
 
         {/* Mobile Navigation */}
@@ -133,21 +144,25 @@ const Header = () => {
       {isMenuOpen && (
         <div className="md:hidden absolute top-full left-0 w-full bg-background/95 backdrop-blur-md shadow-md border-t border-border animate-slide-in-bottom">
           <nav className="flex flex-col p-4 space-y-3">
-            <Link to="/" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors" onClick={toggleMenu}>
+            <Link to="/" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
               Home
             </Link>
-            <Link to="/models" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors" onClick={toggleMenu}>
+            <Link to="/models" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
               Models
             </Link>
-            <Link to="/pricing" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors" onClick={toggleMenu}>
+            <Link to="/pricing" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
               Pricing
             </Link>
-            <Link to="/about" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors" onClick={toggleMenu}>
+            <Link to="/about" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
               About
             </Link>
             <div className="pt-2 flex flex-col space-y-2">
-              <Button variant="outline" className="w-full rounded-full h-10" onClick={toggleMenu}>Sign In</Button>
-              <Button className="w-full rounded-full h-10" onClick={toggleMenu}>Sign Up</Button>
+              <Link to="/signin" className="w-full">
+                <Button variant="outline" className="w-full rounded-full h-10">Sign In</Button>
+              </Link>
+              <Link to="/signup" className="w-full">
+                <Button className="w-full rounded-full h-10">Sign Up</Button>
+              </Link>
             </div>
           </nav>
         </div>
