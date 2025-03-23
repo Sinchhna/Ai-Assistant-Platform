@@ -55,6 +55,9 @@ const Header = () => {
           <Link to="/models" className="px-4 py-2 text-sm font-medium transition-colors hover:text-primary">
             Models
           </Link>
+          <Link to="/my-models" className="px-4 py-2 text-sm font-medium transition-colors hover:text-primary">
+            My Models
+          </Link>
           <Link to="/pricing" className="px-4 py-2 text-sm font-medium transition-colors hover:text-primary">
             Pricing
           </Link>
@@ -149,6 +152,9 @@ const Header = () => {
             </Link>
             <Link to="/models" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
               Models
+            </Link>
+            <Link to="/my-models" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
+              My Models
             </Link>
             <Link to="/pricing" className="px-4 py-3 text-sm font-medium hover:bg-muted rounded-md transition-colors">
               Pricing
