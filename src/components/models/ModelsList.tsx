@@ -105,16 +105,20 @@ const ModelsList = ({ isLoading, category, sortBy, searchQuery }: ModelsListProp
   useEffect(() => {
     setPage(1);
     
-    let filteredModels = [...mockModels];
+    // Combine mock models with user-created models from localStorage
+    const userModels = JSON.parse(localStorage.getItem('models') || '[]');
+    const readyUserModels = userModels.filter((model: any) => model.status === 'ready');
+    
+    let allModels = [...mockModels, ...readyUserModels];
     
     // Apply category filter
     if (category && category !== "all") {
-      filteredModels = filteredModels.filter(model => model.category === category);
+      allModels = allModels.filter(model => model.category === category);
     }
     
     // Apply search query
     if (searchQuery) {
-      filteredModels = filteredModels.filter(model => 
+      allModels = allModels.filter(model => 
         model.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         model.description.toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -123,20 +127,20 @@ const ModelsList = ({ isLoading, category, sortBy, searchQuery }: ModelsListProp
     // Apply sorting
     switch (sortBy) {
       case "price-low":
-        filteredModels.sort((a, b) => a.price - b.price);
+        allModels.sort((a, b) => (a.price || 0) - (b.price || 0));
         break;
       case "price-high":
-        filteredModels.sort((a, b) => b.price - a.price);
+        allModels.sort((a, b) => (b.price || 0) - (a.price || 0));
         break;
       case "rating":
-        filteredModels.sort((a, b) => b.rating - a.rating);
+        allModels.sort((a, b) => b.rating - a.rating);
         break;
       default: // "popular"
-        filteredModels.sort((a, b) => b.reviews - a.reviews);
+        allModels.sort((a, b) => b.reviews - a.reviews);
     }
     
-    setModels(filteredModels);
-    setHasMore(filteredModels.length > 6);
+    setModels(allModels);
+    setHasMore(allModels.length > 6);
   }, [category, sortBy, searchQuery]);
   
   // Load more models

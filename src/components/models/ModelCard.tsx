@@ -49,11 +49,22 @@ const ModelCard = ({ model, delay = 0, onDelete }: ModelCardProps) => {
     return () => clearTimeout(timer);
   }, [delay]);
   
+  // Navigate to model detail page on click
+  const handleCardClick = () => {
+    if (isNewModel(model) && model.status === 'training') {
+      return; // Prevent clicking on training models
+    }
+    
+    // Navigate to the model detail page
+    window.location.href = `/model/${model.id}`;
+  };
+  
   return (
     <Card 
       className={`overflow-hidden transition-all duration-500 hover:shadow-lg group cursor-pointer ${
         isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
       }`}
+      onClick={handleCardClick}
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         <div className={`absolute inset-0 bg-secondary/70 backdrop-blur-sm shimmer ${imageLoaded ? 'hidden' : 'block'}`} />

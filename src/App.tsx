@@ -13,6 +13,7 @@ import SignIn from "./pages/SignIn";
 import About from "./pages/About";
 import MyModels from "./pages/MyModels";
 import CreateModel from "./pages/CreateModel";
+import ModelDetail from "./pages/ModelDetail";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/models" element={<Models />} />
           <Route path="/my-models" element={<MyModels />} />
           <Route path="/create-model" element={<CreateModel />} />
+          <Route path="/model/:id" element={<ModelDetail />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/about" element={<About />} />
