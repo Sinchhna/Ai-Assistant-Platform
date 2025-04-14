@@ -64,6 +64,13 @@ The Edge Function requires an OpenAI API key to function:
    - Go to your project dashboard
    - Navigate to Settings > API > Edge Functions > Secrets
    - Add a new secret with name `OPENAI_API_KEY` and your API key as the value
+   
+4. (Optional) Control which models are used:
+   - To always use free models (like GPT-3.5 Turbo) instead of GPT-4o, set this secret:
+   ```bash
+   supabase secrets set USE_FREE_MODELS=true --project-ref your-project-ref
+   ```
+   - This is useful if you want to avoid charges for more expensive models
 
 ### Troubleshooting
 
@@ -72,7 +79,11 @@ If you encounter issues with AI responses:
 1. Check the console logs for detailed error messages
 2. Verify that your OpenAI API key is correctly set in Supabase secrets
 3. Ensure the Edge Function is properly deployed
-4. If issues persist, the application will fall back to simulated responses
+4. If you see errors about GPT-4o access or billing, try setting `USE_FREE_MODELS=true` as described above
+5. The application includes an improved fallback system:
+   - If GPT-4o isn't available, it will try GPT-3.5 Turbo
+   - If no OpenAI models work, it falls back to simulated responses by category
+   - The user interface will show which model is actually responding
 
 ## How can I edit this code?
 

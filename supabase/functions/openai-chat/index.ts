@@ -75,19 +75,53 @@ serve(async (req) => {
       });
     }
 
-    // Call OpenAI API
+    // Determine which model to use - support both paid and free models
+    let finalModelName = modelName;
+    
+    // Provide fallbacks for different model types
+    if (modelName === 'gpt-4o' && Deno.env.get('USE_FREE_MODELS') === 'true') {
+      console.log('[Supabase Edge Function] Using free model fallback instead of GPT-4o');
+      finalModelName = 'gpt-3.5-turbo';
+    }
+    
+    console.log(`[Supabase Edge Function] Using model: ${finalModelName}`);
+    
+    // Call OpenAI API with error handling
     const response = await openai.chat.completions.create({
-      model: modelName,
+      model: finalModelName,
       messages: apiMessages,
       temperature: 0.7,
       max_tokens: 1500,
+    }).catch(async (err) => {
+      console.error(`[Supabase Edge Function] Error with model ${finalModelName}:`, err.message);
+      
+      // If the model fails and it's not already a fallback, try with gpt-3.5-turbo
+      if (finalModelName !== 'gpt-3.5-turbo') {
+        console.log('[Supabase Edge Function] Falling back to gpt-3.5-turbo');
+        return await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: apiMessages,
+          temperature: 0.7,
+          max_tokens: 1500,
+        });
+      }
+      
+      // Re-throw if we can't use the fallback or the fallback also failed
+      throw err;
     });
 
+    // Get the content from the response
+    const content = response.choices[0]?.message?.content || '';
+    
+    // Add model information as a tag at the beginning of the response
+    // This will be parsed and removed on the client side
+    const responseWithModelTag = `[model:${finalModelName}] ${content}`;
+    
     // Return the response
     return new Response(
       JSON.stringify({ 
-        response: response.choices[0]?.message?.content || '',
-        model: modelName,
+        response: responseWithModelTag,
+        model: finalModelName,
         usage: response.usage,
       }),
       { 

@@ -21,6 +21,7 @@ interface Message {
   role: 'user' | 'assistant';
   timestamp: Date;
   isRealAI?: boolean; // Optional flag to indicate if this is from the real AI API
+  modelName?: string; // Optional field to indicate which model generated the response
 }
 
 const ModelDetail = () => {
@@ -158,14 +159,33 @@ const ModelDetail = () => {
       // Save AI response to history
       addMessageToHistory(model.id, 'assistant', response);
       
-      // Add AI response to UI
+      // Extract model information if available
+      const modelInfo = {
+        isRealAI: true,
+        modelName: 'Simulated', // Default value
+        cleanResponse: response // Start with the original response
+      };
+      
+      // Check if the response contains model identifier
+      if (response.includes('[model:gpt-4o]')) {
+        modelInfo.modelName = 'GPT-4o';
+        // Remove the model identifier from the visible response
+        modelInfo.cleanResponse = response.replace('[model:gpt-4o]', '').trim();
+      } else if (response.includes('[model:gpt-3.5-turbo]')) {
+        modelInfo.modelName = 'GPT-3.5 Turbo';
+        // Remove the model identifier from the visible response
+        modelInfo.cleanResponse = response.replace('[model:gpt-3.5-turbo]', '').trim();
+      }
+      
+      // Add AI response to UI with model information
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: response,
+        content: modelInfo.cleanResponse, // Use the cleaned response without model tags
         role: 'assistant',
         timestamp: new Date(),
-        // Add metadata to track if this was a real AI response
-        isRealAI: true 
+        // Add metadata to track if this was a real AI response and which model was used
+        isRealAI: modelInfo.isRealAI,
+        modelName: modelInfo.modelName
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -390,7 +410,7 @@ const ModelDetail = () => {
                         {message.role === 'assistant' && message.isRealAI && (
                           <div className="mt-2 flex items-center text-xs text-blue-500">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles mr-1"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>
-                            Powered by GPT-4o
+                            Powered by {message.modelName || 'AI'}
                           </div>
                         )}
                       </div>

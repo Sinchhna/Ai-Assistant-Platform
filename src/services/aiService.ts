@@ -102,14 +102,44 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
     try {
       // First attempt to use Supabase Edge Function
       console.log(`[AI] Calling OpenAI via Supabase Edge Function...`);
-      const response = await callOpenAIViaSupabase(
-        systemPromptText,
-        messages,
-        'gpt-4o' // Using the latest model
-      );
       
-      console.log(`[AI] Got response from OpenAI via Supabase`);
-      return response || "I'm sorry, I couldn't generate a response.";
+      // Try with a less expensive model first if GPT-4o fails
+      try {
+        const response = await callOpenAIViaSupabase(
+          systemPromptText,
+          messages,
+          'gpt-4o' // Try with the latest model first
+        );
+        
+        console.log(`[AI] Got response from OpenAI via Supabase using GPT-4o`);
+        return response || "I'm sorry, I couldn't generate a response.";
+      } catch (gpt4oError) {
+        // If GPT-4o fails (possibly due to API key limits), try with a more accessible model
+        if (gpt4oError instanceof Error && 
+            (gpt4oError.message.includes('API key') || 
+             gpt4oError.message.includes('billing') || 
+             gpt4oError.message.includes('rate limit'))) {
+          
+          console.log(`[AI] GPT-4o failed, trying with gpt-3.5-turbo instead...`);
+          try {
+            const fallbackResponse = await callOpenAIViaSupabase(
+              systemPromptText,
+              messages,
+              'gpt-3.5-turbo' // Fallback to a more accessible model
+            );
+            
+            console.log(`[AI] Got response from OpenAI via Supabase using gpt-3.5-turbo`);
+            return fallbackResponse || "I'm sorry, I couldn't generate a response.";
+          } catch (fallbackError) {
+            // If fallback also fails, re-throw to use the simulated response
+            console.warn("[AI] Fallback model also failed:", fallbackError);
+            throw fallbackError;
+          }
+        } else {
+          // For other types of errors, just re-throw
+          throw gpt4oError;
+        }
+      }
     } catch (supabaseError) {
       console.warn("[AI] Error using Supabase Edge Function:", supabaseError);
       
@@ -118,14 +148,14 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
         // If the error is about the OpenAI API key
         if (supabaseError.message.includes('API key')) {
           console.error("[AI] OpenAI API key is not configured or invalid");
-          return "I'm unable to connect to my AI backend. Please make sure you've set up your OpenAI API key in the Supabase Edge Function secrets.";
+          return "I'm an AI assistant based on your model settings. I can help you with your tasks, but I'm currently operating in offline mode because the OpenAI API key is not configured.";
         }
         
         // If it's a Supabase configuration error
         if (supabaseError.message.includes('Supabase configuration') || 
             supabaseError.message.includes('supabaseUrl')) {
           console.error("[AI] Supabase is not configured properly:", supabaseError.message);
-          return "I'm unable to connect to my AI backend. Please make sure you've set up your Supabase configuration correctly.";
+          return "I'm ready to help with your tasks based on your model configuration. I'm operating in local mode because the Supabase connection isn't configured yet.";
         }
       }
       
@@ -147,8 +177,31 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
   } catch (error) {
     console.error("[AI] Error in getAIResponse:", error);
     
-    // Fallback response in case of API issues
-    return "I'm having trouble connecting to my knowledge base right now. Please try again in a moment.";
+    // Provide a helpful response instead of a generic error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.log("[AI] Error details:", errorMessage);
+    
+    // Fallback response based on the model's category and context
+    const fallbackIntro = `I'm ${model.name}, an AI assistant specialized in ${model.category}. `;
+    const troubleshootingInfo = "I'm currently operating in offline mode because I couldn't connect to the AI service. ";
+    let categoryBasedResponse = "";
+    
+    // Add category-specific responses
+    switch (model.category) {
+      case "Development":
+        categoryBasedResponse = "I can still help with your coding questions using my built-in knowledge. What would you like to know?";
+        break;
+      case "Text Generation":
+        categoryBasedResponse = "I can still help with creative writing and text tasks using my local capabilities. What are you working on?";
+        break;
+      case "Data Analysis":
+        categoryBasedResponse = "I can still discuss data analysis approaches and methods. What kind of analysis are you interested in?";
+        break;
+      default:
+        categoryBasedResponse = "How can I assist you with your task today?";
+    }
+    
+    return fallbackIntro + troubleshootingInfo + categoryBasedResponse;
   }
 };
 

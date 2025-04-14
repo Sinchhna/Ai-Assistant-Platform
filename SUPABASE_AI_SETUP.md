@@ -43,7 +43,9 @@ supabase functions deploy openai-chat --project-ref your-project-ref
 
 Replace `your-project-ref` with your Supabase project reference ID, which you can find in the Supabase dashboard.
 
-## Step 5: Set the OpenAI API Key as a Secret
+## Step 5: Set Up Secrets for the Edge Function
+
+### Required: Set the OpenAI API Key
 
 Option 1: Using the CLI:
 
@@ -56,6 +58,16 @@ Option 2: Using the Supabase Dashboard:
 1. Go to your project in the Supabase dashboard
 2. Navigate to Settings > API > Edge Functions > Secrets
 3. Add a new secret with the name `OPENAI_API_KEY` and your API key as the value
+
+### Optional: Control Model Usage
+
+If you want to limit usage to free models only (to avoid OpenAI charges), set the following secret:
+
+```bash
+supabase secrets set USE_FREE_MODELS=true --project-ref your-project-ref
+```
+
+This will force the application to use `gpt-3.5-turbo` instead of more expensive models like `gpt-4o`.
 
 ## Testing the Integration
 
