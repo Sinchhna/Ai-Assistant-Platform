@@ -1,6 +1,7 @@
 
 import { Model } from './modelService';
 import { callOpenAIViaSupabase } from './supabaseAI';
+import { supabaseConfig } from '@/config/supabase';
 
 // Function to get system prompt based on model description and category
 const getSystemPrompt = (model: Model): string => {
@@ -92,6 +93,12 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
     
     console.log(`[AI] Generating response for ${model.name} (${model.category})...`);
     
+    // Check if Supabase is configured before attempting to use it
+    if (!supabaseConfig.isConfigured) {
+      console.warn("[AI] Supabase is not configured. Using fallback response generator.");
+      throw new Error("Supabase is not configured");
+    }
+    
     try {
       // First attempt to use Supabase Edge Function
       console.log(`[AI] Calling OpenAI via Supabase Edge Function...`);
@@ -112,6 +119,13 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
         if (supabaseError.message.includes('API key')) {
           console.error("[AI] OpenAI API key is not configured or invalid");
           return "I'm unable to connect to my AI backend. Please make sure you've set up your OpenAI API key in the Supabase Edge Function secrets.";
+        }
+        
+        // If it's a Supabase configuration error
+        if (supabaseError.message.includes('Supabase configuration') || 
+            supabaseError.message.includes('supabaseUrl')) {
+          console.error("[AI] Supabase is not configured properly:", supabaseError.message);
+          return "I'm unable to connect to my AI backend. Please make sure you've set up your Supabase configuration correctly.";
         }
       }
       

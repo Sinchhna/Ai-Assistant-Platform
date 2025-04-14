@@ -1,12 +1,19 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { supabaseConfig } from '@/config/supabase';
 
-// Constants for Supabase connection
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-// Initialize Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Function to safely get the Supabase client
+const getSupabaseClient = () => {
+  // Use the configuration module to get client
+  const client = supabaseConfig.getClient();
+  
+  // Throw meaningful error if client cannot be created
+  if (!client) {
+    throw new Error('Supabase configuration is incomplete. Please check your environment variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  }
+  
+  return client;
+};
 
 // Function to call OpenAI through Supabase Edge Function
 export const callOpenAIViaSupabase = async (
@@ -19,14 +26,18 @@ export const callOpenAIViaSupabase = async (
     console.log(`[Supabase AI] System prompt length: ${systemPrompt.length} characters`);
     console.log(`[Supabase AI] Messages count: ${messages.length}`);
     
-    // Ensure Supabase is properly initialized
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('[Supabase AI] Supabase URL or Anon Key is missing');
-      throw new Error('Supabase configuration is incomplete. Please check your environment variables.');
+    // Initialize Supabase client when needed (lazy initialization)
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      console.error('[Supabase AI] Failed to initialize Supabase client:', error);
+      throw error;
     }
     
     const startTime = Date.now();
     
+    // Use the initialized Supabase client
     const { data, error } = await supabase.functions.invoke('openai-chat', {
       body: {
         systemPrompt,

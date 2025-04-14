@@ -10,7 +10,22 @@ This project is an AI Marketplace that allows creating and using custom AI model
 
 The application uses a Supabase Edge Function to securely communicate with OpenAI's API. Follow these steps to set it up:
 
-### 1. Deploy the Supabase Edge Function
+### 1. Configure Supabase Environment Variables
+
+Before deploying the Edge Function, you need to set up your Supabase environment variables:
+
+1. Create a file named `.env.local` in the root of your project with:
+   ```
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+   Replace the values with your actual Supabase project URL and anonymous key.
+
+2. Restart your development server after adding these variables.
+
+For more detailed instructions, see the `SUPABASE_ENV_SETUP.md` file.
+
+### 2. Deploy the Supabase Edge Function
 
 1. Make sure you have Supabase CLI installed:
    ```bash
@@ -33,7 +48,7 @@ The application uses a Supabase Edge Function to securely communicate with OpenA
    ```
    Replace `your-project-ref` with your Supabase project reference ID.
 
-### 2. Set up OpenAI API Key
+### 3. Set up OpenAI API Key
 
 The Edge Function requires an OpenAI API key to function:
 
