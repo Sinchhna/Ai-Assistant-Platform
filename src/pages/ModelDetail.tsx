@@ -11,7 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Brain, Send, Upload, BarChart, Loader2, Languages } from "lucide-react";
-import { Model, getModels, simulateAIResponse } from "@/services/modelService";
+import { Model, getModels, addMessageToHistory, getMessageHistory } from "@/services/modelService";
+import { getAIResponse } from "@/services/aiService";
 import { toast } from "sonner";
 
 interface Message {
@@ -137,10 +138,26 @@ const ModelDetail = () => {
     setIsProcessing(true);
     
     try {
-      // Simulate AI response based on model category and user input
-      const response = await simulateAIResponse(model, userMessageContent);
+      // Save user message to history
+      addMessageToHistory(model.id, 'user', userMessageContent);
       
-      // Add AI response
+      // Get message history for context
+      const messageHistory = getMessageHistory()[model.id] || [];
+      
+      // Get response from real AI model based on category and user input
+      const response = await getAIResponse(
+        model, 
+        userMessageContent,
+        messageHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      );
+      
+      // Save AI response to history
+      addMessageToHistory(model.id, 'assistant', response);
+      
+      // Add AI response to UI
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: response,
@@ -328,9 +345,14 @@ const ModelDetail = () => {
                       {model.category}
                     </Badge>
                     {model.status === 'ready' && (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                        Ready
-                      </Badge>
+                      <>
+                        <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                          Ready
+                        </Badge>
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                          Powered by GPT-4o
+                        </Badge>
+                      </>
                     )}
                   </div>
                 </div>
