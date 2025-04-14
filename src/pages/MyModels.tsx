@@ -4,65 +4,97 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { BadgeAlert, Brain, Clock, Plus, Search, Trash2 } from "lucide-react";
 import ModelCard from "@/components/models/ModelCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
-
-// Sample user models data
-const userModels = [
-  {
-    id: 101,
-    name: "My NLP Assistant",
-    description: "Custom NLP model trained on my specific dataset for internal use.",
-    category: "Text Generation",
-    price: 0,
-    rating: 4.5,
-    reviews: 3,
-    image: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: 102,
-    name: "Customer Service Bot",
-    description: "AI chatbot trained to handle customer inquiries for my e-commerce store.",
-    category: "Text Generation",
-    price: 0,
-    rating: 4.2,
-    reviews: 5,
-    image: "https://images.unsplash.com/photo-1596920566403-2072ed942644?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-  }
-];
+import { getModels, deleteModel, Model } from "@/services/modelService";
+import { Progress } from "@/components/ui/progress";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const MyModels = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredModels, setFilteredModels] = useState(userModels);
+  const [models, setModels] = useState<Model[]>([]);
+  const [filteredModels, setFilteredModels] = useState<Model[]>([]);
+  const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
+  // Load models from localStorage
   useEffect(() => {
     document.title = "AIMarket - My Models";
     
     // Simulate loading data
     const timer = setTimeout(() => {
+      const storedModels = getModels();
+      setModels(storedModels);
+      setFilteredModels(storedModels);
       setIsLoading(false);
     }, 800);
     
-    return () => clearTimeout(timer);
-  }, []);
+    // Set up interval to check for training progress updates
+    const progressInterval = setInterval(() => {
+      const updatedModels = getModels();
+      // Only update if there are models still training
+      if (updatedModels.some(model => model.status === 'training')) {
+        setModels(updatedModels);
+        
+        // Update filtered models while preserving search
+        if (searchQuery.trim() === "") {
+          setFilteredModels(updatedModels);
+        } else {
+          const query = searchQuery.toLowerCase();
+          setFilteredModels(updatedModels.filter(model => 
+            model.name.toLowerCase().includes(query) || 
+            model.description.toLowerCase().includes(query)
+          ));
+        }
+      }
+    }, 1000);
+    
+    return () => {
+      clearTimeout(timer);
+      clearInterval(progressInterval);
+    };
+  }, [refreshTrigger]);
   
+  // Filter models when search query changes
   useEffect(() => {
     if (searchQuery.trim() === "") {
-      setFilteredModels(userModels);
+      setFilteredModels(models);
     } else {
       const query = searchQuery.toLowerCase();
-      setFilteredModels(userModels.filter(model => 
+      setFilteredModels(models.filter(model => 
         model.name.toLowerCase().includes(query) || 
         model.description.toLowerCase().includes(query)
       ));
     }
-  }, [searchQuery]);
+  }, [searchQuery, models]);
   
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+  };
+  
+  const handleDeleteModel = (modelToDelete: Model | any) => {
+    setModelToDelete(modelToDelete);
+  };
+  
+  const confirmDelete = () => {
+    if (modelToDelete) {
+      deleteModel(modelToDelete.id);
+      setModelToDelete(null);
+      // Trigger refresh
+      setRefreshTrigger(prev => prev + 1);
+      toast.success("Model deleted successfully");
+    }
   };
   
   return (
@@ -122,6 +154,7 @@ const MyModels = () => {
                   key={model.id} 
                   model={model} 
                   delay={Math.min(index * 50, 300)}
+                  onDelete={handleDeleteModel}
                 />
               ))}
             </div>
@@ -159,6 +192,33 @@ const MyModels = () => {
         </section>
       </main>
       <Footer />
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!modelToDelete} onOpenChange={(open) => !open && setModelToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Model</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{modelToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setModelToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
