@@ -20,6 +20,7 @@ interface Message {
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
+  isRealAI?: boolean; // Optional flag to indicate if this is from the real AI API
 }
 
 const ModelDetail = () => {
@@ -162,7 +163,9 @@ const ModelDetail = () => {
         id: (Date.now() + 1).toString(),
         content: response,
         role: 'assistant',
-        timestamp: new Date()
+        timestamp: new Date(),
+        // Add metadata to track if this was a real AI response
+        isRealAI: true 
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -349,7 +352,8 @@ const ModelDetail = () => {
                         <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
                           Ready
                         </Badge>
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>
                           Powered by GPT-4o
                         </Badge>
                       </>
@@ -383,6 +387,12 @@ const ModelDetail = () => {
                         }`}
                       >
                         {message.content}
+                        {message.role === 'assistant' && message.isRealAI && (
+                          <div className="mt-2 flex items-center text-xs text-blue-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles mr-1"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>
+                            Powered by GPT-4o
+                          </div>
+                        )}
                       </div>
                       {message.role === 'user' && (
                         <Avatar className="h-8 w-8">

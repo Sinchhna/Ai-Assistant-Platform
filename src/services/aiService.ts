@@ -66,12 +66,14 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
     };
 
     // Construct the messages array for the API
-    const messages: OpenAIMessage[] = [
-      { 
-        role: 'system', 
-        content: getSystemPrompt(model) 
-      }
-    ];
+    const messages: OpenAIMessage[] = [];
+    
+    // Add the system prompt as the first message
+    const systemPromptText = getSystemPrompt(model);
+    messages.push({ 
+      role: 'system', 
+      content: systemPromptText
+    });
     
     // Add message history, but limit to last 10 messages to avoid token limits
     const recentMessages = messageHistory.slice(-10);
@@ -88,18 +90,32 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
       content: userInput
     });
     
+    console.log(`[AI] Generating response for ${model.name} (${model.category})...`);
+    
     try {
       // First attempt to use Supabase Edge Function
-      const systemPromptText = getSystemPrompt(model);
+      console.log(`[AI] Calling OpenAI via Supabase Edge Function...`);
       const response = await callOpenAIViaSupabase(
         systemPromptText,
         messages,
         'gpt-4o' // Using the latest model
       );
       
+      console.log(`[AI] Got response from OpenAI via Supabase`);
       return response || "I'm sorry, I couldn't generate a response.";
     } catch (supabaseError) {
-      console.warn("Error using Supabase Edge Function, falling back to simulated response:", supabaseError);
+      console.warn("[AI] Error using Supabase Edge Function:", supabaseError);
+      
+      // Check if it's a specific error we can handle
+      if (supabaseError instanceof Error) {
+        // If the error is about the OpenAI API key
+        if (supabaseError.message.includes('API key')) {
+          console.error("[AI] OpenAI API key is not configured or invalid");
+          return "I'm unable to connect to my AI backend. Please make sure you've set up your OpenAI API key in the Supabase Edge Function secrets.";
+        }
+      }
+      
+      console.log(`[AI] Falling back to simulated response for ${model.category}...`);
       
       // Fallback to simulated responses if Supabase call fails
       const categoryResponses = {
@@ -115,7 +131,7 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
         `I'm ${model.name}, an AI assistant trained on your specific requirements. Based on your description "${model.description}", I can help you with your specialized tasks. How can I assist you today?`;
     }
   } catch (error) {
-    console.error("Error in getAIResponse:", error);
+    console.error("[AI] Error in getAIResponse:", error);
     
     // Fallback response in case of API issues
     return "I'm having trouble connecting to my knowledge base right now. Please try again in a moment.";

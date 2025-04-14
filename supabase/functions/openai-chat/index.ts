@@ -43,11 +43,18 @@ serve(async (req) => {
     // Get environment variables
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
+      console.error('[Supabase Edge Function] OpenAI API key is not configured');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key is not configured' }),
+        JSON.stringify({ 
+          error: 'OpenAI API key is not configured', 
+          message: 'Please set the OPENAI_API_KEY secret in your Supabase project. See SUPABASE_AI_SETUP.md for instructions.'
+        }),
         { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          }
         }
       );
     }
