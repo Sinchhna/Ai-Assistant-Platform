@@ -1,7 +1,6 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.29.0';
-import OpenAI from 'https://esm.sh/openai@4.0.0';
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.3";
 
 interface RequestBody {
   systemPrompt?: string;
@@ -27,7 +26,7 @@ serve(async (req) => {
   try {
     // Get request body
     const body: RequestBody = await req.json();
-    const { systemPrompt, messages = [], modelName = 'gpt-4o' } = body;
+    const { systemPrompt, messages = [] } = body;
 
     // Validate request
     if (!messages || !Array.isArray(messages)) {
@@ -41,13 +40,13 @@ serve(async (req) => {
     }
 
     // Get environment variables
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      console.error('[Supabase Edge Function] OpenAI API key is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      console.error('[Supabase Edge Function] Gemini API key is not configured');
       return new Response(
         JSON.stringify({ 
-          error: 'OpenAI API key is not configured', 
-          message: 'Please set the OPENAI_API_KEY secret in your Supabase project. See SUPABASE_AI_SETUP.md for instructions.'
+          error: 'Gemini API key is not configured', 
+          message: 'Please set the GEMINI_API_KEY secret in your Supabase project.'
         }),
         { 
           status: 500,
@@ -59,70 +58,29 @@ serve(async (req) => {
       );
     }
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: OPENAI_API_KEY,
-    });
+    // Initialize Gemini
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-    // Prepare messages for OpenAI
-    const apiMessages = [...messages];
-    
-    // Add system prompt if provided and not already included
-    if (systemPrompt && !messages.some(m => m.role === 'system')) {
-      apiMessages.unshift({
-        role: 'system',
-        content: systemPrompt,
-      });
-    }
+    // Convert messages to Gemini format and combine system prompt
+    const formattedMessages = messages.map(msg => msg.content).join('\n');
+    const prompt = systemPrompt 
+      ? `${systemPrompt}\n\n${formattedMessages}`
+      : formattedMessages;
 
-    // Determine which model to use - support both paid and free models
-    let finalModelName = modelName;
+    console.log(`[Supabase Edge Function] Calling Gemini with prompt length: ${prompt.length}`);
     
-    // Provide fallbacks for different model types
-    if (modelName === 'gpt-4o' && Deno.env.get('USE_FREE_MODELS') === 'true') {
-      console.log('[Supabase Edge Function] Using free model fallback instead of GPT-4o');
-      finalModelName = 'gpt-3.5-turbo';
-    }
-    
-    console.log(`[Supabase Edge Function] Using model: ${finalModelName}`);
-    
-    // Call OpenAI API with error handling
-    const response = await openai.chat.completions.create({
-      model: finalModelName,
-      messages: apiMessages,
-      temperature: 0.7,
-      max_tokens: 1500,
-    }).catch(async (err) => {
-      console.error(`[Supabase Edge Function] Error with model ${finalModelName}:`, err.message);
-      
-      // If the model fails and it's not already a fallback, try with gpt-3.5-turbo
-      if (finalModelName !== 'gpt-3.5-turbo') {
-        console.log('[Supabase Edge Function] Falling back to gpt-3.5-turbo');
-        return await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: apiMessages,
-          temperature: 0.7,
-          max_tokens: 1500,
-        });
-      }
-      
-      // Re-throw if we can't use the fallback or the fallback also failed
-      throw err;
-    });
+    // Generate content with Gemini
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-    // Get the content from the response
-    const content = response.choices[0]?.message?.content || '';
-    
-    // Add model information as a tag at the beginning of the response
-    // This will be parsed and removed on the client side
-    const responseWithModelTag = `[model:${finalModelName}] ${content}`;
-    
     // Return the response
     return new Response(
       JSON.stringify({ 
-        response: responseWithModelTag,
-        model: finalModelName,
-        usage: response.usage,
+        response: `[model:gemini-pro] ${text}`,
+        model: 'gemini-pro',
+        usage: null, // Gemini doesn't provide token usage info
       }),
       { 
         headers: { 
@@ -132,7 +90,6 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    // Handle errors
     console.error('Error:', error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
@@ -146,3 +103,4 @@ serve(async (req) => {
     );
   }
 });
+

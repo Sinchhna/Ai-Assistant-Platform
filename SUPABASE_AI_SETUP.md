@@ -5,12 +5,12 @@ This guide will help you set up the Supabase Edge Function that powers the AI fe
 
 ## Overview
 
-The application uses a Supabase Edge Function to securely call the OpenAI API. This approach keeps your OpenAI API key safe by storing it as a Supabase secret rather than exposing it in the frontend code.
+The application uses a Supabase Edge Function to securely call the Google Gemini API. This approach keeps your Gemini API key safe by storing it as a Supabase secret rather than exposing it in the frontend code.
 
 ## Prerequisites
 
 1. A Supabase account and project
-2. An OpenAI API key (get one at https://platform.openai.com/api-keys)
+2. A Google Gemini API key (get one at https://makersuite.google.com/app/apikey)
 3. Supabase CLI installed on your development machine
 
 ## Step 1: Install Supabase CLI
@@ -45,29 +45,19 @@ Replace `your-project-ref` with your Supabase project reference ID, which you ca
 
 ## Step 5: Set Up Secrets for the Edge Function
 
-### Required: Set the OpenAI API Key
+### Required: Set the Gemini API Key
 
 Option 1: Using the CLI:
 
 ```bash
-supabase secrets set OPENAI_API_KEY=your_openai_api_key --project-ref your-project-ref
+supabase secrets set GEMINI_API_KEY=your_gemini_api_key --project-ref your-project-ref
 ```
 
 Option 2: Using the Supabase Dashboard:
 
 1. Go to your project in the Supabase dashboard
 2. Navigate to Settings > API > Edge Functions > Secrets
-3. Add a new secret with the name `OPENAI_API_KEY` and your API key as the value
-
-### Optional: Control Model Usage
-
-If you want to limit usage to free models only (to avoid OpenAI charges), set the following secret:
-
-```bash
-supabase secrets set USE_FREE_MODELS=true --project-ref your-project-ref
-```
-
-This will force the application to use `gpt-3.5-turbo` instead of more expensive models like `gpt-4o`.
+3. Add a new secret with the name `GEMINI_API_KEY` and your API key as the value
 
 ## Testing the Integration
 
@@ -83,16 +73,9 @@ Once you've set up the Edge Function and API key:
 If you encounter issues:
 
 1. **Edge Function Not Found Error**: Make sure you've correctly deployed the function
-2. **API Key Error**: Verify your OpenAI API key is correctly set in the secrets
+2. **API Key Error**: Verify your Gemini API key is correctly set in the secrets
 3. **CORS Issues**: The Edge Function is configured to allow requests from any origin, so this shouldn't be a problem
 4. **Timeout Errors**: The API might time out for large requests; try with a shorter message
 
 If you still face issues, the application will fall back to simulated AI responses to ensure it remains functional.
 
-## Advanced Configuration
-
-You can modify the Edge Function behavior by editing:
-
-- `supabase/functions/openai-chat/index.ts` - The Edge Function code
-- `src/services/supabaseAI.ts` - The function that calls the Edge Function
-- `src/services/aiService.ts` - The service that handles AI responses and fallbacks
