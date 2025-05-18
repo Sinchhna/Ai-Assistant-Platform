@@ -1,4 +1,3 @@
-
 import { Model } from './modelService';
 import { callOpenAIViaSupabase } from './supabaseAI';
 import { supabaseConfig } from '@/config/supabase';
@@ -57,17 +56,17 @@ When users mention uploading images, explain how you would analyze them if you h
   return basePrompt + categorySpecificPrompt;
 };
 
-// Function to send a message to OpenAI and get a response
+// Function to send a message to Google Gemini and get a response
 export const getAIResponse = async (model: Model, userInput: string, messageHistory: Array<{role: 'user' | 'assistant', content: string}>): Promise<string> => {
   try {
-    // Define the type for OpenAI messages
-    type OpenAIMessage = {
+    // Define the type for messages
+    type AIMessage = {
       role: 'system' | 'user' | 'assistant';
       content: string;
     };
 
     // Construct the messages array for the API
-    const messages: OpenAIMessage[] = [];
+    const messages: AIMessage[] = [];
     
     // Add the system prompt as the first message
     const systemPromptText = getSystemPrompt(model);
@@ -100,61 +99,32 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
     }
     
     try {
-      // First attempt to use Supabase Edge Function
-      console.log(`[AI] Calling OpenAI via Supabase Edge Function...`);
+      // Call Google Gemini via Supabase Edge Function
+      console.log(`[AI] Calling Gemini via Supabase Edge Function...`);
       
-      // Try with a less expensive model first if GPT-4o fails
-      try {
-        const response = await callOpenAIViaSupabase(
-          systemPromptText,
-          messages,
-          'gpt-4o' // Try with the latest model first
-        );
-        
-        console.log(`[AI] Got response from OpenAI via Supabase using GPT-4o`);
-        return response || "I'm sorry, I couldn't generate a response.";
-      } catch (gpt4oError) {
-        // If GPT-4o fails (possibly due to API key limits), try with a more accessible model
-        if (gpt4oError instanceof Error && 
-            (gpt4oError.message.includes('API key') || 
-             gpt4oError.message.includes('billing') || 
-             gpt4oError.message.includes('rate limit'))) {
-          
-          console.log(`[AI] GPT-4o failed, trying with gpt-3.5-turbo instead...`);
-          try {
-            const fallbackResponse = await callOpenAIViaSupabase(
-              systemPromptText,
-              messages,
-              'gpt-3.5-turbo' // Fallback to a more accessible model
-            );
-            
-            console.log(`[AI] Got response from OpenAI via Supabase using gpt-3.5-turbo`);
-            return fallbackResponse || "I'm sorry, I couldn't generate a response.";
-          } catch (fallbackError) {
-            // If fallback also fails, re-throw to use the simulated response
-            console.warn("[AI] Fallback model also failed:", fallbackError);
-            throw fallbackError;
-          }
-        } else {
-          // For other types of errors, just re-throw
-          throw gpt4oError;
-        }
-      }
-    } catch (supabaseError) {
-      console.warn("[AI] Error using Supabase Edge Function:", supabaseError);
+      const response = await callOpenAIViaSupabase(
+        systemPromptText,
+        messages,
+        'gemini-pro' // Always use Gemini Pro
+      );
+      
+      console.log(`[AI] Got response from Gemini via Supabase`);
+      return response || "I'm sorry, I couldn't generate a response.";
+    } catch (geminiError) {
+      console.warn("[AI] Error using Supabase Edge Function:", geminiError);
       
       // Check if it's a specific error we can handle
-      if (supabaseError instanceof Error) {
-        // If the error is about the OpenAI API key
-        if (supabaseError.message.includes('API key')) {
-          console.error("[AI] OpenAI API key is not configured or invalid");
-          return "I'm an AI assistant based on your model settings. I can help you with your tasks, but I'm currently operating in offline mode because the OpenAI API key is not configured.";
+      if (geminiError instanceof Error) {
+        // If the error is about the API key
+        if (geminiError.message.includes('API key')) {
+          console.error("[AI] Gemini API key is not configured or invalid");
+          return "I'm an AI assistant based on your model settings. I can help you with your tasks, but I'm currently operating in offline mode because the Gemini API key is not configured.";
         }
         
         // If it's a Supabase configuration error
-        if (supabaseError.message.includes('Supabase configuration') || 
-            supabaseError.message.includes('supabaseUrl')) {
-          console.error("[AI] Supabase is not configured properly:", supabaseError.message);
+        if (geminiError.message.includes('Supabase configuration') || 
+            geminiError.message.includes('supabaseUrl')) {
+          console.error("[AI] Supabase is not configured properly:", geminiError.message);
           return "I'm ready to help with your tasks based on your model configuration. I'm operating in local mode because the Supabase connection isn't configured yet.";
         }
       }

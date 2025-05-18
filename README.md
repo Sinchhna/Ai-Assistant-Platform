@@ -1,6 +1,7 @@
+
 # Welcome to your Lovable project
 
-This project is an AI Marketplace that allows creating and using custom AI models with OpenAI integration.
+This project is an AI Marketplace that allows creating and using custom AI models with Google Gemini integration.
 
 ## Project info
 
@@ -8,7 +9,7 @@ This project is an AI Marketplace that allows creating and using custom AI model
 
 ## AI Integration Setup
 
-The application uses a Supabase Edge Function to securely communicate with OpenAI's API. Follow these steps to set it up:
+The application uses a Supabase Edge Function to securely communicate with Google Gemini's API. Follow these steps to set it up:
 
 ### 1. Configure Supabase Environment Variables
 
@@ -48,42 +49,31 @@ For more detailed instructions, see the `SUPABASE_ENV_SETUP.md` file.
    ```
    Replace `your-project-ref` with your Supabase project reference ID.
 
-### 3. Set up OpenAI API Key
+### 3. Set up Google Gemini API Key
 
-The Edge Function requires an OpenAI API key to function:
+The Edge Function requires a Google Gemini API key to function:
 
-1. Get an API key from [OpenAI](https://platform.openai.com/api-keys)
+1. Get an API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 2. Set it as a secret in your Supabase project:
    ```bash
-   supabase secrets set OPENAI_API_KEY=your_openai_api_key --project-ref your-project-ref
+   supabase secrets set GEMINI_API_KEY=your_gemini_api_key --project-ref your-project-ref
    ```
-   Replace `your_openai_api_key` with your actual OpenAI API key.
+   Replace `your_gemini_api_key` with your actual Google Gemini API key.
 
 3. Alternatively, you can set the secret through the Supabase dashboard:
    - Go to your project dashboard
    - Navigate to Settings > API > Edge Functions > Secrets
-   - Add a new secret with name `OPENAI_API_KEY` and your API key as the value
-   
-4. (Optional) Control which models are used:
-   - To always use free models (like GPT-3.5 Turbo) instead of GPT-4o, set this secret:
-   ```bash
-   supabase secrets set USE_FREE_MODELS=true --project-ref your-project-ref
-   ```
-   - This is useful if you want to avoid charges for more expensive models
+   - Add a new secret with name `GEMINI_API_KEY` and your API key as the value
 
 ### Troubleshooting
 
 If you encounter issues with AI responses:
 
 1. Check the console logs for detailed error messages
-2. Verify that your OpenAI API key is correctly set in Supabase secrets
+2. Verify that your Gemini API key is correctly set in Supabase secrets
 3. Ensure the Edge Function is properly deployed
-4. If you see errors about GPT-4o access or billing, try setting `USE_FREE_MODELS=true` as described above
-5. The application includes an improved fallback system:
-   - If GPT-4o isn't available, it will try GPT-3.5 Turbo
-   - If no OpenAI models work, it falls back to simulated responses by category
-   - The user interface will show which model is actually responding
+4. If you continue to see "offline mode" messages, the application is falling back to simulated responses because it cannot connect to the Gemini API
 
 ## How can I edit this code?
 
@@ -133,7 +123,7 @@ npm run dev
 
 ## What technologies are used for this project?
 
-This project is built with .
+This project is built with:
 
 - Vite
 - TypeScript

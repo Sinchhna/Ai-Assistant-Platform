@@ -76,6 +76,11 @@ If you encounter issues:
 2. **API Key Error**: Verify your Gemini API key is correctly set in the secrets
 3. **CORS Issues**: The Edge Function is configured to allow requests from any origin, so this shouldn't be a problem
 4. **Timeout Errors**: The API might time out for large requests; try with a shorter message
+5. **No API Key**: If you haven't set up a Gemini API key, you'll see "operating in offline mode" messages
 
-If you still face issues, the application will fall back to simulated AI responses to ensure it remains functional.
+If you continue to experience issues:
 
+1. Check the browser console for specific error messages
+2. Verify in the Supabase dashboard that your Edge Function is deployed correctly
+3. Confirm your Gemini API key is valid and has been added correctly as a secret
+4. The application includes a fallback system that will provide simulated responses by category when it can't connect to Gemini

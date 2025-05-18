@@ -15,11 +15,11 @@ const getSupabaseClient = () => {
   return client;
 };
 
-// Function to call OpenAI through Supabase Edge Function
+// Function to call Gemini through Supabase Edge Function
 export const callOpenAIViaSupabase = async (
   systemPrompt: string,
   messages: Array<{role: 'user' | 'assistant' | 'system', content: string}>,
-  modelName = 'gpt-4o'
+  modelName = 'gemini-pro'
 ) => {
   try {
     console.log(`[Supabase AI] Invoking openai-chat Edge Function with model: ${modelName}`);
@@ -52,15 +52,15 @@ export const callOpenAIViaSupabase = async (
     if (error) {
       console.error('[Supabase AI] Error calling Supabase Edge Function:', error);
       
-      if (error.message.includes('not found') || error.message.includes('404')) {
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
         throw new Error('The openai-chat Edge Function is not deployed. Please deploy it first.');
       }
       
-      if (error.message.includes('timeout') || error.message.includes('aborted')) {
+      if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
         throw new Error('The AI request timed out. Please try again with a shorter prompt or fewer messages.');
       }
       
-      throw new Error(`Failed to get AI response via Supabase: ${error.message}`);
+      throw new Error(`Failed to get AI response via Supabase: ${error.message || 'Unknown error'}`);
     }
 
     if (!data || !data.response) {
