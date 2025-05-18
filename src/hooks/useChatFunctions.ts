@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Model, addMessageToHistory, getMessageHistory } from "@/services/modelService";
 import { getAIResponse } from "@/services/aiService";
+import { getDirectGeminiResponse, isGeminiConfigured } from "@/services/directGeminiService";
 
 interface Message {
   id: string;
@@ -19,6 +20,11 @@ export const useChatFunctions = (model: Model | null) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(isGeminiConfigured());
+
+  const updateApiKeyStatus = () => {
+    setApiKeyConfigured(isGeminiConfigured());
+  };
 
   // Generate appropriate greeting based on model category
   const generateGreeting = (model: Model): string => {
@@ -94,15 +100,43 @@ export const useChatFunctions = (model: Model | null) => {
       // Get message history for context
       const messageHistory = getMessageHistory()[model.id] || [];
       
-      // Get response from real AI model based on category and user input
-      const response = await getAIResponse(
-        model, 
-        userMessageContent,
-        messageHistory.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }))
-      );
+      let response;
+      
+      // Try to use direct Gemini API first if configured
+      if (isGeminiConfigured()) {
+        try {
+          // Get response from Gemini directly
+          response = await getDirectGeminiResponse(
+            model,
+            userMessageContent,
+            messageHistory.map(msg => ({
+              role: msg.role,
+              content: msg.content
+            }))
+          );
+        } catch (geminiError) {
+          console.error("Error with direct Gemini API:", geminiError);
+          // Fall back to the original method
+          response = await getAIResponse(
+            model, 
+            userMessageContent,
+            messageHistory.map(msg => ({
+              role: msg.role,
+              content: msg.content
+            }))
+          );
+        }
+      } else {
+        // Fall back to original method if Gemini API key not configured
+        response = await getAIResponse(
+          model, 
+          userMessageContent,
+          messageHistory.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }))
+        );
+      }
       
       // Save AI response to history
       addMessageToHistory(model.id, 'assistant', response);
@@ -158,6 +192,8 @@ export const useChatFunctions = (model: Model | null) => {
     selectedFile,
     setSelectedFile,
     fileInputRef,
+    apiKeyConfigured,
+    updateApiKeyStatus,
     generateGreeting,
     handleUploadClick,
     handleFileChange,

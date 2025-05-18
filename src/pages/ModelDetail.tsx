@@ -13,6 +13,7 @@ import ModelDetailSidebar from "@/components/model-detail/ModelDetailSidebar";
 import ModelDetailLoader from "@/components/model-detail/ModelDetailLoader";
 import ModelNotFound from "@/components/model-detail/ModelNotFound";
 import useChatFunctions from "@/hooks/useChatFunctions";
+import { initializeGeminiApiKey } from "@/services/directGeminiService";
 
 interface Message {
   id: string;
@@ -30,6 +31,11 @@ const ModelDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Initialize Gemini API key from localStorage if available
+  useEffect(() => {
+    initializeGeminiApiKey();
+  }, []);
+  
   // Use the chat hook
   const {
     input,
@@ -43,8 +49,15 @@ const ModelDetail = () => {
     handleFileChange,
     handleSendMessage,
     handleKeyDown,
+    updateApiKeyStatus,
     generateGreeting
   } = useChatFunctions(model);
+  
+  // Handle API key set callback
+  const handleApiKeySet = () => {
+    updateApiKeyStatus();
+    toast.success("Gemini API key configured successfully");
+  };
   
   useEffect(() => {
     document.title = model ? `${model.name} - AIMarket` : "AI Model - AIMarket";
@@ -202,7 +215,7 @@ const ModelDetail = () => {
               renderCategorySpecificUI={renderCategorySpecificUI}
             />
             
-            <ModelDetailSidebar model={model} />
+            <ModelDetailSidebar model={model} onApiKeySet={handleApiKeySet} />
           </div>
         </div>
       </main>
