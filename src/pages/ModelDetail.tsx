@@ -1,26 +1,26 @@
+
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Brain, Send, Upload, BarChart, Loader2, Languages } from "lucide-react";
-import { Model, getModels, addMessageToHistory, getMessageHistory } from "@/services/modelService";
-import { getAIResponse } from "@/services/aiService";
+import { ArrowLeft, Brain, BarChart } from "lucide-react";
+import { Model, getModels } from "@/services/modelService";
 import { toast } from "sonner";
+import ChatInterface from "@/components/model-detail/ChatInterface";
+import ModelDetailSidebar from "@/components/model-detail/ModelDetailSidebar";
+import ModelDetailLoader from "@/components/model-detail/ModelDetailLoader";
+import ModelNotFound from "@/components/model-detail/ModelNotFound";
+import useChatFunctions from "@/hooks/useChatFunctions";
 
 interface Message {
   id: string;
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
-  isRealAI?: boolean; // Optional flag to indicate if this is from the real AI API
-  modelName?: string; // Optional field to indicate which model generated the response
+  isRealAI?: boolean;
+  modelName?: string;
 }
 
 const ModelDetail = () => {
@@ -28,12 +28,23 @@ const ModelDetail = () => {
   const navigate = useNavigate();
   const [model, setModel] = useState<Model | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Use the chat hook
+  const {
+    input,
+    setInput,
+    messages,
+    setMessages,
+    isProcessing,
+    selectedFile,
+    setSelectedFile,
+    handleUploadClick,
+    handleFileChange,
+    handleSendMessage,
+    handleKeyDown,
+    generateGreeting
+  } = useChatFunctions(model);
   
   useEffect(() => {
     document.title = model ? `${model.name} - AIMarket` : "AI Model - AIMarket";
@@ -76,143 +87,7 @@ const ModelDetail = () => {
     };
     
     loadModel();
-  }, [id, navigate]);
-  
-  // Auto-scroll to bottom of chat
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-  
-  // Generate appropriate greeting based on model category
-  const generateGreeting = (model: Model): string => {
-    const category = model.category;
-    
-    switch (category) {
-      case "Text Generation":
-        return `Hello! I'm ${model.name}, an AI assistant trained to help with text generation tasks. How can I assist you today?`;
-      case "Image Generation":
-        return `Welcome! I'm ${model.name}, an AI image generation model. I can create images based on your descriptions. What would you like me to create?`;
-      case "Audio":
-        return `Hi there! I'm ${model.name}, an AI voice assistant. I can help with voice-related tasks. Feel free to ask me anything!`;
-      case "Development":
-        return `Hello developer! I'm ${model.name}, an AI coding assistant. I can help with programming questions, code reviews, and suggestions. What are you working on?`;
-      case "Data Analysis":
-        return `Welcome to ${model.name}! I'm an AI data analysis assistant. Upload your data or describe what insights you're looking for, and I'll help you analyze it.`;
-      case "Computer Vision":
-        return `Hello! I'm ${model.name}, an AI computer vision model. I can analyze images or video frames. Upload an image or describe what you're looking to identify.`;
-      default:
-        return `Hello! I'm ${model.name}, an AI assistant trained on your specifications. How can I help you today?`;
-    }
-  };
-  
-  // Handle sending a message
-  const handleSendMessage = async () => {
-    if (!input.trim() && !selectedFile) return;
-    
-    if (!model) {
-      toast.error("Model not available");
-      return;
-    }
-    
-    if (model.status !== 'ready') {
-      toast.error("Model is still training");
-      return;
-    }
-    
-    // Create user message
-    const userMessageContent = selectedFile 
-      ? `[Uploaded ${selectedFile.name}] ${input}`
-      : input;
-    
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: userMessageContent,
-      role: 'user',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInput("");
-    setSelectedFile(null);
-    setIsProcessing(true);
-    
-    try {
-      // Save user message to history
-      addMessageToHistory(model.id, 'user', userMessageContent);
-      
-      // Get message history for context
-      const messageHistory = getMessageHistory()[model.id] || [];
-      
-      // Get response from real AI model based on category and user input
-      const response = await getAIResponse(
-        model, 
-        userMessageContent,
-        messageHistory.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }))
-      );
-      
-      // Save AI response to history
-      addMessageToHistory(model.id, 'assistant', response);
-      
-      // Extract model information if available
-      const modelInfo = {
-        isRealAI: true,
-        modelName: 'Simulated', // Default value
-        cleanResponse: response // Start with the original response
-      };
-      
-      // Check if the response contains model identifier
-      if (response.includes('[model:gemini-pro]')) {
-        modelInfo.modelName = 'Gemini Pro';
-        // Remove the model identifier from the visible response
-        modelInfo.cleanResponse = response.replace('[model:gemini-pro]', '').trim();
-      }
-      
-      // Add AI response to UI with model information
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: modelInfo.cleanResponse, // Use the cleaned response without model tags
-        role: 'assistant',
-        timestamp: new Date(),
-        // Add metadata to track if this was a real AI response and which model was used
-        isRealAI: modelInfo.isRealAI,
-        modelName: modelInfo.modelName
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error("Error generating response:", error);
-      toast.error("Failed to generate response");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  
-  // Handle Enter key press
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-  
-  // Handle file upload button click
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-  
-  // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      toast.success(`File selected: ${file.name}`);
-    }
-  };
+  }, [id, navigate, messages.length, generateGreeting, setMessages]);
   
   // Render UI components based on model category
   const renderCategorySpecificUI = () => {
@@ -228,16 +103,9 @@ const ModelDetail = () => {
               onClick={handleUploadClick}
               className="gap-2"
             >
-              <Upload className="h-4 w-4" />
+              <BarChart className="h-4 w-4" />
               Upload Data
             </Button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              className="hidden" 
-              accept=".csv,.xlsx,.json"
-            />
             {selectedFile && (
               <Badge variant="outline" className="text-xs">
                 {selectedFile.name}
@@ -256,16 +124,9 @@ const ModelDetail = () => {
               onClick={handleUploadClick}
               className="gap-2"
             >
-              <Upload className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               Upload Image
             </Button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              className="hidden" 
-              accept="image/*"
-            />
             {selectedFile && (
               <Badge variant="outline" className="text-xs">
                 {selectedFile.name}
@@ -302,38 +163,11 @@ const ModelDetail = () => {
   };
   
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center">
-            <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-            <p className="text-lg text-muted-foreground">Loading model...</p>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
+    return <ModelDetailLoader />;
   }
   
   if (!model) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-2">Model Not Found</h2>
-            <p className="text-muted-foreground mb-6">
-              The model you're looking for does not exist or has been removed.
-            </p>
-            <Button onClick={() => navigate("/models")}>
-              Back to Models
-            </Button>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
+    return <ModelNotFound />;
   }
   
   return (
@@ -351,279 +185,24 @@ const ModelDetail = () => {
           </Button>
           
           <div className="grid grid-cols-1 md:grid-cols-[1fr_350px] gap-8">
-            <div className="flex flex-col h-[calc(100vh-250px)] min-h-[500px]">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  {getCategoryIcon()}
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold">{model.name}</h1>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-primary/10 hover:bg-primary/20 text-primary">
-                      {model.category}
-                    </Badge>
-                    {model.status === 'ready' && (
-                      <>
-                        <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                          Ready
-                        </Badge>
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>
-                          Powered by Gemini Pro
-                        </Badge>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              <Card className="flex-1 flex flex-col p-0 overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex gap-3 ${
-                        message.role === 'assistant' ? 'justify-start' : 'justify-end'
-                      }`}
-                    >
-                      {message.role === 'assistant' && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src="" />
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {getCategoryIcon()}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div
-                        className={`rounded-lg px-4 py-2 max-w-[80%] ${
-                          message.role === 'assistant'
-                            ? 'bg-secondary text-secondary-foreground'
-                            : 'bg-primary text-primary-foreground'
-                        }`}
-                      >
-                        {message.content}
-                        {message.role === 'assistant' && message.isRealAI && (
-                          <div className="mt-2 flex items-center text-xs text-blue-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles mr-1"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>
-                            Powered by {message.modelName || 'AI'}
-                          </div>
-                        )}
-                      </div>
-                      {message.role === 'user' && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src="" />
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            U
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-                
-                <Separator />
-                
-                <div className="p-4">
-                  {renderCategorySpecificUI()}
-                  
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        model.status !== 'ready'
-                          ? "Model is still training..."
-                          : model.category === "Data Analysis"
-                          ? "Ask about your data or describe what you want to analyze..."
-                          : model.category === "Image Generation"
-                          ? "Describe the image you want to generate..."
-                          : "Type your message..."
-                      }
-                      disabled={model.status !== 'ready' || isProcessing}
-                      className="min-h-[60px] resize-none"
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={model.status !== 'ready' || (!input.trim() && !selectedFile) || isProcessing}
-                      className="self-end"
-                    >
-                      {isProcessing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </div>
+            <ChatInterface
+              model={model}
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              isProcessing={isProcessing}
+              handleSendMessage={handleSendMessage}
+              getCategoryIcon={getCategoryIcon}
+              fileInputRef={fileInputRef}
+              handleUploadClick={handleUploadClick}
+              handleFileChange={handleFileChange}
+              handleKeyDown={handleKeyDown}
+              renderCategorySpecificUI={renderCategorySpecificUI}
+            />
             
-            <div className="space-y-6">
-              <Card className="p-6">
-                <h2 className="text-xl font-bold mb-2">About This Model</h2>
-                <p className="text-muted-foreground mb-4">
-                  {model.description}
-                </p>
-                
-                <Separator className="my-4" />
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Category</span>
-                    <span className="font-medium">{model.category}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Created</span>
-                    <span className="font-medium">
-                      {new Date(model.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Rating</span>
-                    <span className="font-medium">{model.rating.toFixed(1)}/5</span>
-                  </div>
-                </div>
-              </Card>
-              
-              <Card className="p-6">
-                <h2 className="text-xl font-bold mb-2">How to Use</h2>
-                <div className="space-y-4">
-                  {model.category === "Text Generation" && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This AI model specializes in generating human-like text based on your prompts.
-                      </p>
-                      <ul className="space-y-2 text-sm">
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Type your prompt or question in the chat</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>The more specific your prompt, the better the results</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Ask for revisions if the output needs tweaking</span>
-                        </li>
-                      </ul>
-                    </>
-                  )}
-                  
-                  {model.category === "Image Generation" && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This AI model creates images based on your text descriptions.
-                      </p>
-                      <ul className="space-y-2 text-sm">
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Describe the image you want to create in detail</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>You can specify style, mood, lighting, and composition</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Upload reference images for better results</span>
-                        </li>
-                      </ul>
-                    </>
-                  )}
-                  
-                  {model.category === "Audio" && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This AI model works with audio processing, voice generation, and sound analysis.
-                      </p>
-                      <ul className="space-y-2 text-sm">
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Describe the voice or audio you want to generate</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>You can specify tone, accent, and emotion</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Ask for audio analysis or transcription</span>
-                        </li>
-                      </ul>
-                    </>
-                  )}
-                  
-                  {model.category === "Development" && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This AI model assists with coding, debugging, and software development tasks.
-                      </p>
-                      <ul className="space-y-2 text-sm">
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Ask coding questions or request code examples</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Share your code for debugging assistance</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Get help with algorithms, optimization, and best practices</span>
-                        </li>
-                      </ul>
-                    </>
-                  )}
-                  
-                  {model.category === "Data Analysis" && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This AI model helps analyze data, generate insights, and create visualizations.
-                      </p>
-                      <ul className="space-y-2 text-sm">
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Upload data files (CSV, Excel, JSON)</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Ask specific questions about your data</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Request visualizations and statistical analysis</span>
-                        </li>
-                      </ul>
-                    </>
-                  )}
-                  
-                  {model.category === "Computer Vision" && (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        This AI model analyzes and processes images and visual data.
-                      </p>
-                      <ul className="space-y-2 text-sm">
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Upload images for analysis</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Ask for object detection, classification, or image segmentation</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="text-primary">•</span>
-                          <span>Get detailed descriptions of visual content</span>
-                        </li>
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </Card>
-            </div>
+            <ModelDetailSidebar model={model} />
           </div>
         </div>
       </main>
