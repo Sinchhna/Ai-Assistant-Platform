@@ -1,4 +1,3 @@
-
 import { Model } from './modelService';
 
 // Interface for Gemini AI Response
@@ -71,39 +70,29 @@ export interface GeminiConfig {
   apiKey: string | null;
 }
 
+// IMPORTANT: Replace 'YOUR_GEMINI_API_KEY_HERE' with your actual Gemini API key
 export const geminiConfig: GeminiConfig = {
-  apiKey: null,
+  apiKey: 'YOUR_GEMINI_API_KEY_HERE',
 };
 
-// Function to set Gemini API key
+// These functions are kept for backwards compatibility but modified for the new approach
 export const setGeminiApiKey = (apiKey: string) => {
-  geminiConfig.apiKey = apiKey;
-  localStorage.setItem('gemini_api_key', apiKey);
-  console.log('Gemini API key has been set.');
+  console.log('Note: Using hardcoded API key instead of user input');
   return true;
 };
 
-// Function to get Gemini API key from localStorage on initialization
 export const initializeGeminiApiKey = () => {
-  const savedKey = localStorage.getItem('gemini_api_key');
-  if (savedKey) {
-    geminiConfig.apiKey = savedKey;
-    console.log('Gemini API key loaded from localStorage.');
-    return true;
-  }
-  return false;
+  console.log('Using pre-configured Gemini API key');
+  return true;
 };
 
-// Function to clear Gemini API key
 export const clearGeminiApiKey = () => {
-  geminiConfig.apiKey = null;
-  localStorage.removeItem('gemini_api_key');
-  console.log('Gemini API key has been cleared.');
+  console.log('Note: Cannot clear hardcoded API key');
 };
 
 // Function to check if Gemini API is configured
 export const isGeminiConfigured = (): boolean => {
-  return !!geminiConfig.apiKey;
+  return !!geminiConfig.apiKey && geminiConfig.apiKey !== 'YOUR_GEMINI_API_KEY_HERE';
 };
 
 // Call the Gemini API directly
@@ -159,8 +148,8 @@ export const getDirectGeminiResponse = async (
   messageHistory: Array<{role: 'user' | 'assistant', content: string}>
 ): Promise<string> => {
   try {
-    if (!geminiConfig.apiKey) {
-      throw new Error('Gemini API key is not configured');
+    if (!geminiConfig.apiKey || geminiConfig.apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+      throw new Error('Please replace the placeholder with your actual Gemini API key in directGeminiService.ts');
     }
 
     // Create a combined prompt with system instructions and message history
@@ -189,11 +178,11 @@ export const getDirectGeminiResponse = async (
     
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
-        return "I'm currently unable to process your request because the Gemini API key is not configured. Please set your API key in the settings.";
+        return "I'm currently unable to process your request because the Gemini API key is not properly configured. Please update the API key in the directGeminiService.ts file.";
       }
     }
     
     // Return a generic error message
-    return "I apologize, but I'm having trouble connecting to the Gemini service. Please check your API key and internet connection.";
+    return "I apologize, but I'm having trouble connecting to the Gemini service. Please check your API key configuration and internet connection.";
   }
 };
