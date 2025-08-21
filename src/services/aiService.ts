@@ -3,7 +3,7 @@ import { callOpenAIViaSupabase } from './supabaseAI';
 import { supabaseConfig } from '@/config/supabase';
 
 // Heuristics to keep answers restricted to the model's declared domain
-const isInDomain = (model: Model, userInput: string, recentMessages: Array<{ role: 'user' | 'assistant'; content: string }> = []): boolean => {
+export const isInDomain = (model: Model, userInput: string, recentMessages: Array<{ role: 'user' | 'assistant'; content: string }> = []): boolean => {
   const text = (userInput || '').toLowerCase();
   const recentContext = recentMessages
     .slice(-5)
@@ -20,6 +20,7 @@ const isInDomain = (model: Model, userInput: string, recentMessages: Array<{ rol
   // Fine-tuned roles via description keywords (e.g., math teacher)
   const isMathRole = /\bmath(ematics)?\b|algebra|geometry|calculus|probability|statistics|teacher/.test(desc) && model.category !== 'Development';
   const isDevRoleByDesc = /(developer|develop|coding|programmer|engineer|software|code assistant|write code|debug)/.test(desc);
+  const isFinanceRoleByDesc = /(finance|financial|budget|invest|investment|retire|mortgage|loan|savings|interest|portfolio|stock|bond|tax)/.test(desc);
   if (isMathRole) {
     // Consider numeric expressions with arithmetic operators as math queries
     const containsArithmetic = /([0-9].*[+\-*/^=])|([+\-*/^=].*[0-9])|\b(sum|add|plus|minus|times|multiply|divide|product|difference|quotient|evaluate)\b/i;
@@ -32,6 +33,20 @@ const isInDomain = (model: Model, userInput: string, recentMessages: Array<{ rol
       /\bmath|algebra|geometry|calculus|probability|statistics\b/i,
       /equation|theorem|proof|simplify|differentiate|derivative|integral|integration|antiderivative|limit(s)?|series|solve/i
     ]);
+  }
+
+  // If description indicates a finance role, require finance-related context
+  if (isFinanceRoleByDesc) {
+    const financePatterns = [
+      /finance|financial|budget|budgeting|expense|spend(ing)?|save|savings|emergency fund|cash flow/i,
+      /invest|investment|portfolio|asset allocation|rebalance|index fund|etf|mutual fund|dividend|bond|stock|equity|ticker|valuation/i,
+      /retire(ment)?|401k|403b|ira|roth|pension|annuity/i,
+      /loan|mortgage|principal|interest|apr|apy|amortization|refinance/i,
+      /inflation|cpi|real return|risk|volatility|drawdown/i,
+      /tax|capital gains|withholding|deduction|credit/i
+    ];
+    // Strict: require current input to be finance-related, not just recent context
+    return hasAny(financePatterns);
   }
 
   switch (model.category) {
@@ -60,7 +75,29 @@ const isInDomain = (model: Model, userInput: string, recentMessages: Array<{ rol
         /\bcode\b|\bprogram\b|\bfunction\b|class\b|debug\b|error\b|optimi[sz]e\b/i,
         /python|java(script)?|typescript|c\+\+|c#|go\b|rust\b|sql|react|node/i
       ]);
+    case 'Finance':
+      return hasAny([
+        /finance|financial|budget|budgeting|expense|spend(ing)?|save|savings|emergency fund|cash flow/i,
+        /invest|investment|portfolio|asset allocation|rebalance|index fund|etf|mutual fund|dividend|bond|stock|equity|ticker|valuation/i,
+        /retire(ment)?|401k|403b|ira|roth|pension|annuity/i,
+        /loan|mortgage|principal|interest|apr|apy|amortization|refinance/i,
+        /inflation|cpi|real return|risk|volatility|drawdown/i,
+        /tax|capital gains|withholding|deduction|credit/i
+      ]);
     case 'Text Generation':
+      // If description implies finance role, do not accept generic writing requests unless finance-related
+      if (isFinanceRoleByDesc) {
+        const financePatterns = [
+          /finance|financial|budget|budgeting|expense|spend(ing)?|save|savings|emergency fund|cash flow/i,
+          /invest|investment|portfolio|asset allocation|rebalance|index fund|etf|mutual fund|dividend|bond|stock|equity|ticker|valuation/i,
+          /retire(ment)?|401k|403b|ira|roth|pension|annuity/i,
+          /loan|mortgage|principal|interest|apr|apy|amortization|refinance/i,
+          /inflation|cpi|real return|risk|volatility|drawdown/i,
+          /tax|capital gains|withholding|deduction|credit/i
+        ];
+        // Strict: require current input to be finance-related
+        return hasAny(financePatterns);
+      }
       return hasAny([
         /write|draft|blog|article|story|email|copy|caption|tweet|summar(y|ise|ize)|rephrase|paraphrase/i
       ]) || hasAnyCombined([
@@ -106,7 +143,9 @@ const domainHint = (model: Model): string => {
     case 'Development':
       return 'coding questions, debugging, and software topics';
     case 'Text Generation':
-      return 'writing tasks such as blogs, emails, and summaries';
+      return 'text creation and editing tasks';
+    case 'Finance':
+      return 'personal finance, budgeting, and investing topics';
     case 'Data Analysis':
       return 'data analysis, charts, statistics, and insights';
     case 'Image Generation':
@@ -121,11 +160,13 @@ const domainHint = (model: Model): string => {
 };
 
 // Human-friendly domain label, preferring role hints in description (e.g., math teacher)
-const domainLabel = (model: Model): string => {
+export const domainLabel = (model: Model): string => {
   const desc = (model.description || '').toLowerCase();
   const isMathRole = /\bmath(ematics)?\b|algebra|geometry|calculus|probability|statistics|teacher/.test(desc) && model.category !== 'Development';
   const isDevRoleByDesc = /(developer|develop|coding|programmer|engineer|software|code assistant|write code|debug)/.test(desc);
+  const isFinanceRole = /(finance|financial|budget|invest|investment|retire|mortgage|loan|savings|interest)/.test(desc);
   if (isMathRole) return 'mathematics and math teaching';
+  if (isFinanceRole || model.category === 'Finance') return 'personal finance, budgeting, and investing topics';
   if (model.category === 'Development' || isDevRoleByDesc) return 'coding, debugging, and software topics';
   return domainHint(model);
 };
@@ -150,6 +191,13 @@ GLOBAL BEHAVIOR RULES:
 You excel at generating creative, coherent, and contextually relevant text.
 You can write essays, stories, summaries, and other content based on user prompts.
 Keep your responses focused on text generation tasks.`;
+      break;
+    case "Finance":
+      categorySpecificPrompt = `
+You are a finance assistant that helps with financial calculations, budgeting, investing, and explaining financial concepts.
+Always be numerically accurate, show step-by-step math when helpful, and explain assumptions.
+Clarify missing inputs (amounts, rates, time horizons, risk tolerance) with concise questions.
+You provide general information, not legal, tax, or investment advice. Encourage consulting a professional for personalized advice.`;
       break;
       
     case "Image Generation":
@@ -195,7 +243,7 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
   try {
     // Domain guard BEFORE calling AI
     if (!isInDomain(model, userInput, messageHistory)) {
-      return `I'm ${model.name}. I focus on ${domainLabel(model)}. I can't help with that request, but I'm happy to assist within my domain. What would you like to explore there?`;
+      return `I'm ${model.name}. I'm specialized in ${domainLabel(model)}. I can't help with that request, but I'm happy to assist within my domain. What would you like to explore there?`;
     }
 
     // Define the type for messages
@@ -279,10 +327,10 @@ export const getAIResponse = async (model: Model, userInput: string, messageHist
       const isNonMathRole = !descriptionLower.includes('math') && (descriptionLower.includes('writer') || descriptionLower.includes('developer') || descriptionLower.includes('coding'));
       
       if (isCodingRequest && isNonDevRole) {
-        return `I'm ${model.name}. My focus is ${model.category.toLowerCase()} — ${model.description}. I can't provide code for that. Would you like help framed within my domain instead?`;
+        return `I'm ${model.name}. I'm specialized in ${model.category.toLowerCase()} — ${model.description}. I can't provide code for that. Would you like help framed within my domain instead?`;
       }
       if (isMathRequest && isNonMathRole) {
-        return `I'm ${model.name}. My focus is ${model.category.toLowerCase()} — ${model.description}. I can't provide math solutions, but I can help within my domain. What would you like to explore there?`;
+        return `I'm ${model.name}. I'm specialized in ${model.category.toLowerCase()} — ${model.description}. I can't provide math solutions, but I can help within my domain. What would you like to explore there?`;
       }
       
       // Fallback to simulated responses if Supabase call fails

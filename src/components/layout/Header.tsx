@@ -1,16 +1,19 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Search, Menu, X } from "lucide-react";
+import { getCurrentUser, onAuthStateChange, signOut } from "@/services/authService";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,6 +29,32 @@ const Header = () => {
     setIsMenuOpen(false);
     setIsSearchOpen(false);
   }, [location.pathname]);
+
+  // Auth state
+  useEffect(() => {
+    let unsub: { data: { subscription: { unsubscribe: () => void } } } | null = null;
+    (async () => {
+      try {
+        const u = await getCurrentUser();
+        setUserEmail(u?.email ?? null);
+      } catch {}
+      unsub = onAuthStateChange((_event, u) => {
+        setUserEmail(u?.email ?? null);
+      });
+    })();
+    return () => {
+      try { unsub?.data.subscription.unsubscribe(); } catch {}
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setUserEmail(null);
+      setIsMenuOpen(false);
+      navigate("/");
+    } catch {}
+  };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleSearch = () => setIsSearchOpen(!isSearchOpen);
@@ -94,12 +123,21 @@ const Header = () => {
             )}
           </div>
           <ModeToggle />
-          <Link to="/signin">
-            <Button variant="outline" className="ml-2 rounded-full h-9">Sign In</Button>
-          </Link>
-          <Link to="/signup">
-            <Button className="ml-2 rounded-full h-9">Sign Up</Button>
-          </Link>
+          {userEmail ? (
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-sm text-muted-foreground max-w-[220px] truncate" title={userEmail}>{userEmail}</span>
+              <Button variant="outline" className="rounded-full h-9" onClick={handleSignOut}>Sign Out</Button>
+            </div>
+          ) : (
+            <>
+              <Link to="/signin">
+                <Button variant="outline" className="ml-2 rounded-full h-9">Sign In</Button>
+              </Link>
+              <Link to="/signup">
+                <Button className="ml-2 rounded-full h-9">Sign Up</Button>
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Mobile Navigation */}
@@ -163,12 +201,18 @@ const Header = () => {
               About
             </Link>
             <div className="pt-2 flex flex-col space-y-2">
-              <Link to="/signin" className="w-full">
-                <Button variant="outline" className="w-full rounded-full h-10">Sign In</Button>
-              </Link>
-              <Link to="/signup" className="w-full">
-                <Button className="w-full rounded-full h-10">Sign Up</Button>
-              </Link>
+              {userEmail ? (
+                <Button variant="outline" className="w-full rounded-full h-10" onClick={handleSignOut}>Sign Out</Button>
+              ) : (
+                <>
+                  <Link to="/signin" className="w-full">
+                    <Button variant="outline" className="w-full rounded-full h-10">Sign In</Button>
+                  </Link>
+                  <Link to="/signup" className="w-full">
+                    <Button className="w-full rounded-full h-10">Sign Up</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </div>

@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/components/ui/use-toast";
+import { signUp } from "@/services/authService";
 
 const formSchema = z.object({
   fullName: z.string().min(2, {
@@ -53,21 +54,23 @@ const SignUp = () => {
     },
   });
 
-  const onSubmit = (data: FormValues) => {
-    console.log("Form submitted:", data);
-    
-    // Show success toast
-    toast({
-      title: "Account created!",
-      description: "You have successfully signed up.",
-      duration: 3000,
-    });
-    
-    // In a real app, this would call an authentication service
-    // For now, we'll just redirect to the home page after a delay
-    setTimeout(() => {
+  const onSubmit = async (data: FormValues) => {
+    try {
+      await signUp(data.email, data.password, data.fullName);
+      toast({
+        title: "Account created!",
+        description: "You have successfully signed up.",
+        duration: 3000,
+      });
       navigate("/");
-    }, 1500);
+    } catch (error: any) {
+      toast({
+        title: "Sign up failed",
+        description: error?.message || "Please try again.",
+        duration: 4000,
+        variant: "destructive",
+      });
+    }
   };
 
   return (

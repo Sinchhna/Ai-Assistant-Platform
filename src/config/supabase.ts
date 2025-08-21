@@ -19,7 +19,7 @@ export const supabaseConfig: SupabaseConfig = {
   supabaseUrl,
   supabaseAnonKey,
   
-  // Lazy initialization of Supabase client
+  // Lazy singleton initialization of Supabase client
   getClient: () => {
     // Only create client if configuration is available
     if (!supabaseUrl || !supabaseAnonKey) {
@@ -28,8 +28,20 @@ export const supabaseConfig: SupabaseConfig = {
     }
     
     try {
-      // Create and return the client
-      return createClient(supabaseUrl, supabaseAnonKey);
+      // Reuse a single client across the app to avoid multiple GoTrue instances
+      const w = typeof window !== 'undefined' ? (window as any) : undefined;
+      if (w && w.__supabaseClient) {
+        return w.__supabaseClient;
+      }
+      const client = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storageKey: 'aimarketplace-auth',
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      });
+      if (w) w.__supabaseClient = client;
+      return client;
     } catch (error) {
       console.error('[Supabase Config] Error creating Supabase client:', error);
       return null;

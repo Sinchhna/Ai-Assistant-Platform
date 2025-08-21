@@ -19,6 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/components/ui/use-toast";
+import { signIn } from "@/services/authService";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -44,21 +45,23 @@ const SignIn = () => {
     },
   });
 
-  const onSubmit = (data: FormValues) => {
-    console.log("Form submitted:", data);
-    
-    // Show success toast
-    toast({
-      title: "Welcome back!",
-      description: "You have successfully signed in.",
-      duration: 3000,
-    });
-    
-    // In a real app, this would call an authentication service
-    // For now, we'll just redirect to the home page after a delay
-    setTimeout(() => {
+  const onSubmit = async (data: FormValues) => {
+    try {
+      await signIn(data.email, data.password);
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+        duration: 3000,
+      });
       navigate("/");
-    }, 1500);
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error?.message || "Please check your credentials and try again.",
+        duration: 4000,
+        variant: "destructive",
+      });
+    }
   };
 
   return (

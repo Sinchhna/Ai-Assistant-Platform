@@ -2,6 +2,8 @@
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Model, addMessageToHistory, getMessageHistory } from "@/services/modelService";
+import { getCurrentUser } from "@/services/authService";
+import { addMessage as dbAddMessage, createConversation as dbCreateConversation, listConversations as dbListConversations, getOrCreateAssistantByExternalId } from "@/services/dbService";
 import { getAIResponse } from "@/services/aiService";
 
 interface Message {
@@ -130,6 +132,45 @@ export const useChatFunctions = (model: Model | null) => {
       };
       
       setMessages(prev => [...prev, aiMessage]);
+
+      // Persist to Supabase if logged in
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          // find or create a conversation for this model+user (simple: first recent conv)
+          // Ensure an assistant record exists for this user+model.id
+          const assistant = await getOrCreateAssistantByExternalId(user.id, String(model.id), {
+            name: model.name,
+            description: model.description,
+            category: model.category,
+            image_url: model.imageUrl ?? undefined,
+          });
+          const existing = await dbListConversations(assistant.id);
+          let conversation = existing[0];
+          if (!conversation) {
+            conversation = await dbCreateConversation({
+              owner_id: user.id,
+              assistant_id: assistant.id,
+              title: `${model.name} chat`
+            });
+          }
+          // add user and assistant messages
+          await dbAddMessage({
+            conversation_id: conversation.id,
+            owner_id: user.id,
+            role: 'user',
+            content: userMessageContent
+          });
+          await dbAddMessage({
+            conversation_id: conversation.id,
+            owner_id: user.id,
+            role: 'assistant',
+            content: cleanResponse
+          });
+        }
+      } catch (persistErr) {
+        console.warn('Failed to persist chat history to Supabase:', persistErr);
+      }
     } catch (error) {
       console.error("Error generating response:", error);
       toast.error("Failed to generate response");
