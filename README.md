@@ -1,144 +1,103 @@
-<<<<<<< HEAD
+# AI Assistant Platform
 
-# Welcome to your Lovable project
+An AI marketplace-style web app where users create domain-specific assistants, chat with them (Google Gemini via Supabase Edge Functions), and persist assistants and conversations per authenticated user.
 
-This project is an AI Marketplace that allows creating and using custom AI models with Google Gemini integration.
+## Features
+- User authentication with Supabase Auth (email/password)
+- Per-user assistants stored in Postgres (`assistants` table) with RLS
+- Conversations and messages persisted per user (`conversations`, `messages` tables)
+- Domain-restricted behavior per assistant (e.g., Finance, Development)
+- Gemini integration through a Supabase Edge Function (keeps API key server-side)
+- Modern React UI (Vite + TypeScript + Tailwind + shadcn/ui)
 
-## Project info
+## Tech Stack
+- React + Vite + TypeScript
+- Tailwind CSS + shadcn/ui
+- Supabase Auth + Postgres (RLS policies)
+- Supabase Edge Functions (Deno) for Gemini API
 
-**URL**: https://lovable.dev/projects/c2a7f96d-a06a-48af-b8e6-2ee399f24cc1
+## Prerequisites
+- Node.js (18+)
+- Supabase account and project
+- Google Gemini API key
 
-## AI Integration Setup
-
-The application uses a Supabase Edge Function to securely communicate with Google Gemini's API. Follow these steps to set it up:
-
-### 1. Configure Supabase Environment Variables
-
-Before deploying the Edge Function, you need to set up your Supabase environment variables:
-
-1. Create a file named `.env.local` in the root of your project with:
-   ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-   Replace the values with your actual Supabase project URL and anonymous key.
-
-2. Restart your development server after adding these variables.
-
-For more detailed instructions, see the `SUPABASE_ENV_SETUP.md` file.
-
-### 2. Deploy the Supabase Edge Function
-
-1. Make sure you have Supabase CLI installed:
-   ```bash
-   npm install -g supabase
-   ```
-
-2. Login to Supabase CLI:
-   ```bash
-   supabase login
-   ```
-
-3. Navigate to the Edge Function directory:
-   ```bash
-   cd supabase/functions/openai-chat
-   ```
-
-4. Deploy the function to your Supabase project:
-   ```bash
-   supabase functions deploy openai-chat --project-ref your-project-ref
-   ```
-   Replace `your-project-ref` with your Supabase project reference ID.
-
-### 3. Set up Google Gemini API Key
-
-The Edge Function requires a Google Gemini API key to function:
-
-1. Get an API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-
-2. Set it as a secret in your Supabase project:
-   ```bash
-   supabase secrets set GEMINI_API_KEY=your_gemini_api_key --project-ref your-project-ref
-   ```
-   Replace `your_gemini_api_key` with your actual Google Gemini API key.
-
-3. Alternatively, you can set the secret through the Supabase dashboard:
-   - Go to your project dashboard
-   - Navigate to Settings > API > Edge Functions > Secrets
-   - Add a new secret with name `GEMINI_API_KEY` and your API key as the value
-
-### Troubleshooting
-
-If you encounter issues with AI responses:
-
-1. Check the console logs for detailed error messages
-2. Verify that your Gemini API key is correctly set in Supabase secrets
-3. Ensure the Edge Function is properly deployed
-4. If you continue to see "offline mode" messages, the application is falling back to simulated responses because it cannot connect to the Gemini API
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/c2a7f96d-a06a-48af-b8e6-2ee399f24cc1) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+## Local Setup
+1) Install dependencies
+```bash
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
 ```
 
-**Edit a file directly in GitHub**
+2) Environment variables
+Create `.env.local` in the project root:
+```bash
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+Restart the dev server after adding/updating env vars.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3) Supabase: Auth provider (development)
+- Supabase Dashboard → Auth → Providers → Email
+  - Enable Email: ON
+  - Allow password signups: ON
+  - Enable email confirmations: OFF (dev only)
+- Supabase Dashboard → Auth → URL Configuration
+  - Site URL: http://localhost:5173
 
-**Use GitHub Codespaces**
+4) Database schema and RLS
+Open Supabase SQL Editor and run the contents of `supabase/schema.sql`.
+This creates:
+- `profiles` (optional user profile)
+- `assistants` (with `external_id` mapping frontend model id)
+- `conversations`
+- `messages`
+- RLS policies restricting rows to the authenticated owner
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+5) Edge Function deployment (Gemini)
+Install Supabase CLI if you haven’t:
+```bash
+npm install -g supabase
+supabase login
+```
+Deploy the function:
+```bash
+supabase functions deploy openai-chat --project-ref your-project-ref
+```
+Set Gemini API key as a secret:
+```bash
+supabase secrets set GEMINI_API_KEY=your_gemini_api_key --project-ref your-project-ref
+```
 
-## What technologies are used for this project?
+6) Run the app
+```bash
+npm run dev
+```
+Open http://localhost:5173
 
-This project is built with:
+## Using the App
+1) Sign Up or Sign In (header updates to show your email and Sign Out)
+2) Create an assistant and wait until it shows Ready
+3) Open the assistant and start chatting
+- The app will ensure a per-user `assistant` record exists (via `external_id`)
+- It creates a `conversation` on first chat
+- Each message round inserts rows into `messages`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Troubleshooting
+- “Supabase is NOT configured”: check `.env.local` and restart dev server
+- No rows in tables:
+  - Make sure you’re signed in (header shows your email)
+  - In DevTools → Network, chat requests to `rest/v1/...` must include `Authorization: Bearer <token>`
+  - Re-run `supabase/schema.sql` to ensure tables/RLS/GRANTs are applied
+- Email confirmations still required:
+  - Disable confirmations in Auth → Providers → Email, then delete the test user and sign up again
+- Edge Function errors:
+  - Ensure it’s deployed and `GEMINI_API_KEY` secret is set
 
-## How can I deploy this project?
+## Project Structure (high level)
+- `src/services/authService.ts`: Supabase auth helpers
+- `src/services/dbService.ts`: CRUD helpers for assistants, conversations, messages
+- `src/services/aiService.ts`: Domain guard + AI request flow via Edge Function
+- `supabase/functions/openai-chat/`: Edge Function calling Gemini
+- `supabase/schema.sql`: Tables, indices, RLS policies, grants
 
-Simply open [Lovable](https://lovable.dev/projects/c2a7f96d-a06a-48af-b8e6-2ee399f24cc1) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
-=======
-# Ai-Assistant-Platform
->>>>>>> 6a799da8df20ecd5c14c51d8dbf3601e177bc5d0
+## License
+MIT
