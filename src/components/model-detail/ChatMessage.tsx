@@ -18,6 +18,44 @@ interface ChatMessageProps {
 }
 
 const ChatMessage = ({ message, getCategoryIcon }: ChatMessageProps) => {
+  // Very small Markdown subset renderer to support fenced code blocks
+  const renderContent = (text: string) => {
+    const segments: Array<{ type: 'text' | 'code'; lang?: string; content: string }> = [];
+    const fenceRegex = /```([\w+-]*)\n([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = fenceRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+      }
+      segments.push({ type: 'code', lang: match[1] || undefined, content: match[2] });
+      lastIndex = fenceRegex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+      segments.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+
+    return (
+      <div className="space-y-3">
+        {segments.map((seg, idx) => {
+          if (seg.type === 'code') {
+            return (
+              <pre key={idx} className="w-full overflow-x-auto rounded bg-muted p-3 text-sm">
+                <code className="font-mono whitespace-pre">{seg.content}</code>
+              </pre>
+            );
+          }
+          // Text: preserve line breaks
+          return (
+            <div key={idx} className="whitespace-pre-wrap">
+              {seg.content}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div
       className={`flex gap-3 ${
@@ -39,13 +77,7 @@ const ChatMessage = ({ message, getCategoryIcon }: ChatMessageProps) => {
             : 'bg-primary text-primary-foreground'
         }`}
       >
-        {message.content}
-        {message.role === 'assistant' && message.isRealAI && (
-          <div className="mt-2 flex items-center text-xs text-blue-500">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles mr-1"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/></svg>
-            Powered by {message.modelName || 'AI'}
-          </div>
-        )}
+        {renderContent(message.content)}
       </div>
       {message.role === 'user' && (
         <Avatar className="h-8 w-8">

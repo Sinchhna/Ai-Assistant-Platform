@@ -13,7 +13,6 @@ import ModelDetailSidebar from "@/components/model-detail/ModelDetailSidebar";
 import ModelDetailLoader from "@/components/model-detail/ModelDetailLoader";
 import ModelNotFound from "@/components/model-detail/ModelNotFound";
 import useChatFunctions from "@/hooks/useChatFunctions";
-import { initializeGeminiApiKey } from "@/services/directGeminiService";
 
 interface Message {
   id: string;
@@ -30,11 +29,7 @@ const ModelDetail = () => {
   const [model, setModel] = useState<Model | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Initialize Gemini API key from localStorage if available
-  useEffect(() => {
-    initializeGeminiApiKey();
-  }, []);
+  const greetingAddedRef = useRef(false);
   
   // Use the chat hook
   const {
@@ -49,34 +44,28 @@ const ModelDetail = () => {
     handleFileChange,
     handleSendMessage,
     handleKeyDown,
-    updateApiKeyStatus,
     generateGreeting
   } = useChatFunctions(model);
-  
-  // Handle API key set callback
-  const handleApiKeySet = () => {
-    updateApiKeyStatus();
-    toast.success("Gemini API key configured successfully");
-  };
   
   useEffect(() => {
     document.title = model ? `${model.name} - AIMarket` : "AI Model - AIMarket";
   }, [model]);
   
-  // Load model data
+  // Load model data (run on id change only) and add greeting once
   useEffect(() => {
     const loadModel = async () => {
       try {
         setIsLoading(true);
         if (!id) return;
-        
+
         const models = getModels();
         const foundModel = models.find(m => m.id === parseInt(id));
-        
+
         if (foundModel) {
           setModel(foundModel);
-          // Add initial greeting message if model is ready
-          if (foundModel.status === 'ready' && messages.length === 0) {
+          // Add initial greeting message if model is ready and not added yet
+          if (foundModel.status === 'ready' && !greetingAddedRef.current) {
+            greetingAddedRef.current = true;
             const greeting = generateGreeting(foundModel);
             setMessages([
               {
@@ -98,9 +87,13 @@ const ModelDetail = () => {
         setIsLoading(false);
       }
     };
-    
+
     loadModel();
-  }, [id, navigate, messages.length, generateGreeting, setMessages]);
+    // Reset greeting flag when model id changes
+    return () => {
+      greetingAddedRef.current = false;
+    };
+  }, [id, navigate]);
   
   // Render UI components based on model category
   const renderCategorySpecificUI = () => {
@@ -215,7 +208,7 @@ const ModelDetail = () => {
               renderCategorySpecificUI={renderCategorySpecificUI}
             />
             
-            <ModelDetailSidebar model={model} onApiKeySet={handleApiKeySet} />
+            <ModelDetailSidebar model={model} />
           </div>
         </div>
       </main>

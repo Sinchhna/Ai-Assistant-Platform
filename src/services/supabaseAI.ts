@@ -22,7 +22,7 @@ export const callOpenAIViaSupabase = async (
   modelName = 'gemini-pro'
 ) => {
   try {
-    console.log(`[Supabase AI] Invoking openai-chat Edge Function with model: ${modelName}`);
+    console.log(`[Supabase AI] Preparing to invoke Edge Function with model: ${modelName}`);
     console.log(`[Supabase AI] System prompt length: ${systemPrompt.length} characters`);
     console.log(`[Supabase AI] Messages count: ${messages.length}`);
     
@@ -35,41 +35,61 @@ export const callOpenAIViaSupabase = async (
       throw error;
     }
     
-    const startTime = Date.now();
-    
-    // Use the initialized Supabase client
-    const { data, error } = await supabase.functions.invoke('openai-chat', {
-      body: {
-        systemPrompt,
-        messages,
-        modelName
-      }
-    });
+    // Try multiple possible function names for robustness
+    const candidateFunctionNames = ['open-ai-chat', 'openai-chat'];
+    let lastError: unknown = null;
 
-    const duration = Date.now() - startTime;
-    console.log(`[Supabase AI] Edge Function completed in ${duration}ms`);
+    for (const functionName of candidateFunctionNames) {
+      const startTime = Date.now();
+      console.log(`[Supabase AI] Invoking Edge Function '${functionName}'...`);
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: {
+          systemPrompt,
+          messages,
+          modelName
+        }
+      });
 
-    if (error) {
-      console.error('[Supabase AI] Error calling Supabase Edge Function:', error);
-      
-      if (error.message?.includes('not found') || error.message?.includes('404')) {
-        throw new Error('The openai-chat Edge Function is not deployed. Please deploy it first.');
+      const duration = Date.now() - startTime;
+      console.log(`[Supabase AI] Edge Function '${functionName}' completed in ${duration}ms`);
+
+      if (error) {
+        lastError = error;
+        console.warn(`[Supabase AI] Error from '${functionName}':`, error);
+        // If function not found, try next candidate
+        if (error.message?.includes('not found') || error.message?.includes('404')) {
+          continue;
+        }
+        
+        if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
+          throw new Error('The AI request timed out. Please try again with a shorter prompt or fewer messages.');
+        }
+        
+        // Other errors: stop and surface
+        throw new Error(`Failed to get AI response via Supabase ('${functionName}'): ${error.message || 'Unknown error'}`);
       }
-      
-      if (error.message?.includes('timeout') || error.message?.includes('aborted')) {
-        throw new Error('The AI request timed out. Please try again with a shorter prompt or fewer messages.');
+
+      if (!data || !data.response) {
+        console.error(`[Supabase AI] No data or response returned from Edge Function '${functionName}'`);
+        // Try next candidate if available
+        lastError = new Error('Empty response');
+        continue;
       }
-      
-      throw new Error(`Failed to get AI response via Supabase: ${error.message || 'Unknown error'}`);
+
+      console.log(`[Supabase AI] Successfully retrieved response (length: ${data.response.length}) from '${functionName}'`);
+      return data.response;
     }
 
-    if (!data || !data.response) {
-      console.error('[Supabase AI] No data or response returned from Edge Function');
-      throw new Error('The AI service returned an empty response');
+    // If we reach here, all candidates failed
+    if (lastError) {
+      throw new Error(
+        `Could not invoke any Edge Function variants (${candidateFunctionNames.join(', ')}). Last error: ${
+          (lastError as any)?.message || String(lastError)
+        }`
+      );
     }
 
-    console.log(`[Supabase AI] Successfully retrieved response of length: ${data.response.length} characters`);
-    return data.response;
+    throw new Error('No Edge Function candidates available to invoke.');
   } catch (error) {
     console.error('[Supabase AI] Error in callOpenAIViaSupabase:', error);
     throw error;

@@ -1,5 +1,17 @@
+# 🚀 Quick Edge Function Deployment Guide
 
-import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+Since Supabase CLI installation had issues, use this **Dashboard Method** instead.
+
+## 📋 **Step 1: Deploy Edge Function via Dashboard**
+
+1. **Go to**: https://app.supabase.com
+2. **Select your project**: `qcsmzchblerexbffjdct`
+3. **Navigate to**: Edge Functions → New Function
+4. **Function Name**: `openai-chat`
+5. **Copy this code** into the function editor:
+
+```typescript
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.3";
 
 interface RequestBody {
@@ -17,8 +29,8 @@ serve(async (req) => {
     return new Response(null, {
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     });
   }
@@ -26,7 +38,7 @@ serve(async (req) => {
   try {
     // Get request body
     const body: RequestBody = await req.json();
-    const { systemPrompt, messages = [], modelName } = body;
+    const { systemPrompt, messages = [] } = body;
 
     // Validate request
     if (!messages || !Array.isArray(messages)) {
@@ -60,9 +72,7 @@ serve(async (req) => {
 
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    // Prefer requested model when provided; default to a currently supported public model
-    const selectedModel = modelName || "gemini-1.5-flash";
-    const model = genAI.getGenerativeModel({ model: selectedModel });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     // Convert messages to Gemini format and combine system prompt
     const formattedMessages = messages.map(msg => msg.content).join('\n');
@@ -70,7 +80,7 @@ serve(async (req) => {
       ? `${systemPrompt}\n\n${formattedMessages}`
       : formattedMessages;
 
-    console.log(`[Supabase Edge Function] Calling Gemini '${selectedModel}' with prompt length: ${prompt.length}`);
+    console.log(`[Supabase Edge Function] Calling Gemini with prompt length: ${prompt.length}`);
     
     // Generate content with Gemini
     const result = await model.generateContent(prompt);
@@ -80,15 +90,14 @@ serve(async (req) => {
     // Return the response
     return new Response(
       JSON.stringify({ 
-        response: `[model:${selectedModel}] ${text}`,
-        model: selectedModel,
+        response: `[model:gemini-pro] ${text}`,
+        model: 'gemini-pro',
         usage: null, // Gemini doesn't provide token usage info
       }),
       { 
         headers: { 
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
         } 
       }
     );
@@ -101,10 +110,41 @@ serve(async (req) => {
         headers: { 
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
         } 
       }
     );
   }
 });
+```
 
+6. **Click "Deploy"**
+
+## 🔑 **Step 2: Set Gemini API Key Secret**
+
+1. **In Supabase Dashboard**: Settings → API → Edge Functions → Secrets
+2. **Add New Secret**:
+   - **Name**: `GEMINI_API_KEY`
+   - **Value**: Your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+## ✅ **Step 3: Test the Backend**
+
+1. **Your dev server is already running** ✅
+2. **Open browser console** - should see "Supabase is properly configured"
+3. **Create a new AI model** and test chatting
+4. **Look for real AI responses** (not simulated ones)
+
+## 🐛 **Troubleshooting**
+
+- **"Edge Function not found"**: Make sure function name is exactly `openai-chat`
+- **"API key not configured"**: Check the secret name is exactly `GEMINI_API_KEY`
+- **CORS errors**: The function is configured to allow all origins
+
+## 🎯 **What You'll See When Working**
+
+✅ **Console logs**: "Supabase is properly configured"
+✅ **AI responses**: Real responses from Google Gemini
+✅ **No more "offline mode" messages**
+
+---
+
+**Need help?** Check the browser console for specific error messages!
